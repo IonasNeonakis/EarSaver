@@ -1,106 +1,113 @@
-/**
- * EarSaver - Content Script
- * Robust Web Audio API processing for YouTube
- */
-
 (function () {
-    if (window.EAR_SAVER_LOADED) {
-        console.log('EarSaver: Already loaded, skipping...');
-        return;
-    }
+    if (window.EAR_SAVER_LOADED) return;
     window.EAR_SAVER_LOADED = true;
 
     let audioCtx = null;
-    let source = null;
+    let sourceMap = new WeakMap(); // Cache sources for video elements
     let preGainNode = null;
     let compressor = null;
     let gainNode = null;
     let currentVideo = null;
     let currentGainValue = 1.0;
 
-    console.log('EarSaver: Content script initialized.');
+    console.log('EarSaver: Content script active.');
 
-    const setupPipeline = async (video) => {
-        if (currentVideo === video) return;
-
-        console.log('EarSaver: Setting up Adaptive Normalization...');
-
-        try {
-            if (audioCtx) await audioCtx.close();
-
+    const initAudioContext = () => {
+        if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            video.crossOrigin = "anonymous";
 
-            source = audioCtx.createMediaElementSource(video);
-
-            // 1. Pre-Gain: Boost quiet audio (+6dB approx 2x)
             preGainNode = audioCtx.createGain();
-            preGainNode.gain.setValueAtTime(2.0, audioCtx.currentTime);
+            preGainNode.gain.value = 2.0;
 
-            // 2. Aggressive Compressor: Level out the boosted audio
             compressor = audioCtx.createDynamicsCompressor();
-            compressor.threshold.setValueAtTime(-30, audioCtx.currentTime); // Lower threshold to catch more
-            compressor.knee.setValueAtTime(20, audioCtx.currentTime);       // Slightly sharper knee
-            compressor.ratio.setValueAtTime(20, audioCtx.currentTime);      // Limiter-like ratio
-            compressor.attack.setValueAtTime(0.001, audioCtx.currentTime);  // Near-instant attack
-            compressor.release.setValueAtTime(0.1, audioCtx.currentTime);   // Fast release
+            compressor.threshold.value = -30;
+            compressor.knee.value = 20;
+            compressor.ratio.value = 20;
+            compressor.attack.value = 0.001;
+            compressor.release.value = 0.1;
 
-            // 3. Master Gain Node (User Controlled)
             gainNode = audioCtx.createGain();
-            const result = await chrome.storage.local.get(['volume']);
-            currentGainValue = result.volume !== undefined ? result.volume / 100 : 1.0;
-            gainNode.gain.setValueAtTime(currentGainValue, audioCtx.currentTime);
+            chrome.storage.local.get(['volume'], (result) => {
+                currentGainValue = result.volume !== undefined ? result.volume / 100 : 1.0;
+                if (gainNode) gainNode.gain.value = currentGainValue;
+            });
 
-            // Pipeline: Video -> PreGain -> Compressor -> MasterGain -> Destination
-            source.connect(preGainNode);
+            // Pre-connect the static part of the chain
             preGainNode.connect(compressor);
             compressor.connect(gainNode);
             gainNode.connect(audioCtx.destination);
+        }
+        return audioCtx;
+    };
 
-            currentVideo = video;
-            console.log('EarSaver: Adaptive Pipeline active.');
+    const setupPipeline = async (video) => {
+        if (!video || currentVideo === video) return;
+        currentVideo = video; // Set immediately to prevent re-entrancy
 
-            const resumeAudio = () => {
-                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-            };
-            document.addEventListener('click', resumeAudio, { once: true });
-            document.addEventListener('play', resumeAudio, { capture: true, once: true });
+        console.log('EarSaver: Connecting audio pipeline...');
+
+        try {
+            const ctx = initAudioContext();
+
+            // Only set crossOrigin if not already set, to avoid triggering reloads
+            if (video.crossOrigin !== "anonymous") {
+                video.crossOrigin = "anonymous";
+            }
+
+            let source = sourceMap.get(video);
+            if (!source) {
+                source = ctx.createMediaElementSource(video);
+                sourceMap.set(video, source);
+            }
+
+            // Connect source to the beginning of our pre-configured chain
+            source.disconnect(); // Clear existing connections
+            source.connect(preGainNode);
+
+            if (ctx.state === 'suspended') {
+                const resume = () => ctx.resume();
+                document.addEventListener('click', resume, { once: true });
+                video.addEventListener('play', resume, { once: true });
+            }
 
         } catch (err) {
-            console.warn('EarSaver: Pipeline fallback:', err);
-            currentVideo = video;
+            console.error('EarSaver: Pipeline error:', err);
+            // Fallback to standard volume if Web Audio fails
             if (video) video.volume = Math.min(1.0, currentGainValue);
         }
     };
 
-    // Message listener
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.type === 'SET_VOLUME') {
-            currentGainValue = message.value;
-            console.log('EarSaver: Gain set to', currentGainValue);
-
-            if (gainNode && audioCtx && audioCtx.state !== 'closed') {
-                try {
-                    gainNode.gain.setTargetAtTime(currentGainValue, audioCtx.currentTime, 0.01);
-                } catch (e) {
-                    console.error('EarSaver: Gain node error', e);
-                }
-            } else if (currentVideo) {
-                currentVideo.volume = Math.min(1.0, currentGainValue);
-            }
-            if (sendResponse) sendResponse({ success: true });
-        }
-        return true; // Keep message channel open for async if needed
+    // Use YouTube's specific navigation event for better performance
+    document.addEventListener('yt-navigate-finish', () => {
+        const video = document.querySelector('video');
+        if (video) setupPipeline(video);
     });
 
-    // Check for video element
-    const checkVideo = () => {
+    // Fallback/Initial check
+    const observer = new MutationObserver(() => {
         const video = document.querySelector('video');
         if (video && video !== currentVideo) {
             setupPipeline(video);
         }
-    };
+    });
 
-    setInterval(checkVideo, 1000);
-    checkVideo();
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Handle volume updates from popup
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === 'SET_VOLUME') {
+            currentGainValue = message.value;
+            if (gainNode && audioCtx && audioCtx.state !== 'closed') {
+                gainNode.gain.setTargetAtTime(currentGainValue, audioCtx.currentTime, 0.01);
+            } else if (currentVideo) {
+                currentVideo.volume = Math.min(1.0, currentGainValue);
+            }
+            sendResponse({ success: true });
+        }
+        return true;
+    });
+
+    // Initial run
+    const initialVideo = document.querySelector('video');
+    if (initialVideo) setupPipeline(initialVideo);
 })();
