@@ -1,90 +1,152 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
   <style>
+    :root {
+      --primary: #3b82f6;
+      --secondary: #8b5cf6;
+      --bg: #0f172a;
+      --text: #f8fafc;
+      --glass: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.08);
+    }
+
     body {
       width: 250px;
-      padding: 15px;
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background: #121212;
-      color: #ffffff;
+      padding: 0;
+      font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
       margin: 0;
+      overflow: hidden;
     }
+
+    .glass-container {
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+      min-height: 100px;
+    }
+
     .container {
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      gap: 20px;
     }
+
     h2 {
       margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #ff0000; /* YouTube Red */
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
+
     .slider-container {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
+      background: var(--glass);
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
     }
+
     .label-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: #94a3b8;
     }
+
+    #volumeValue {
+      color: var(--text);
+      font-family: monospace;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
     input[type="range"] {
       -webkit-appearance: none;
       width: 100%;
-      height: 6px;
-      background: #333;
-      border-radius: 3px;
+      height: 4px;
+      background: #1e293b;
+      border-radius: 2px;
       outline: none;
       cursor: pointer;
     }
+
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 18px;
-      height: 18px;
-      background: #ff0000;
+      width: 16px;
+      height: 16px;
+      background: #ffffff;
+      border: 3px solid var(--primary);
       border-radius: 50%;
       cursor: pointer;
-      box-shadow: 0 0 10px rgba(255, 0, 0, 0.4);
-      transition: transform 0.1s ease;
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
+
     input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.1);
+      transform: scale(1.15);
+      border-color: var(--secondary);
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.6);
     }
+
     .status {
       font-size: 11px;
-      color: #888;
+      color: #64748b;
       text-align: center;
       margin-top: 5px;
+      font-weight: 500;
+    }
+
+    .logo-icon {
+      filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
     }
   </style>
 </head>
+
 <body>
-  <div class="container">
-    <h2>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-      </svg>
-      EarSaver
-    </h2>
-    <div class="slider-container">
-      <div class="label-row">
-        <span>Volume General</span>
-        <span id="volumeValue">100%</span>
+  <div class="glass-container">
+    <div class="container">
+      <h2>
+        <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"
+          xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 12H6M6 12L9 20L12 4L15 12H21" stroke="url(#logo-gradient)" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" />
+          <defs>
+            <linearGradient id="logo-gradient" x1="3" y1="12" x2="21" y2="12" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#3b82f6" />
+              <stop offset="1" stop-color="#8b5cf6" />
+            </linearGradient>
+          </defs>
+        </svg>
+        EarSaver
+      </h2>
+      <div class="slider-container">
+        <div class="label-row">
+          <span>VOLUME BOOST</span>
+          <span id="volumeValue">100%</span>
+        </div>
+        <input type="range" id="volumeSlider" min="0" max="200" value="100">
       </div>
-      <input type="range" id="volumeSlider" min="0" max="200" value="100">
+      <div class="status">Normalisation active sur YouTube</div>
     </div>
-    <div class="status">Normalisation active sur YouTube</div>
   </div>
   <script src="popup.js"></script>
 </body>
+
 </html>
