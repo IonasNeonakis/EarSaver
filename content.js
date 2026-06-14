@@ -17,7 +17,7 @@
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
             preGainNode = audioCtx.createGain();
-            preGainNode.gain.value = 2.0;
+            preGainNode.gain.value = 1.0;
 
             compressor = audioCtx.createDynamicsCompressor();
             compressor.threshold.value = -30;
@@ -28,7 +28,8 @@
 
             gainNode = audioCtx.createGain();
             chrome.storage.local.get(['volume'], (result) => {
-                currentGainValue = result.volume !== undefined ? result.volume / 100 : 1.0;
+                const volumePercentage = result.volume !== undefined ? result.volume : 100;
+                currentGainValue = Math.pow(volumePercentage / 100, 2);
                 if (gainNode) gainNode.gain.value = currentGainValue;
             });
 
@@ -96,7 +97,8 @@
     // Handle volume updates from popup
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.type === 'SET_VOLUME') {
-            currentGainValue = message.value;
+            const volumePercentage = message.value;
+            currentGainValue = Math.pow(volumePercentage / 100, 2);
             if (gainNode && audioCtx && audioCtx.state !== 'closed') {
                 gainNode.gain.setTargetAtTime(currentGainValue, audioCtx.currentTime, 0.01);
             } else if (currentVideo) {

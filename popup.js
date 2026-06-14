@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Send to active tab
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, { type: 'SET_VOLUME', value: value / 100 }, (response) => {
+                chrome.tabs.sendMessage(tabs[0].id, { type: 'SET_VOLUME', value: value }, (response) => {
                     if (chrome.runtime.lastError) {
                         // Silent fail if not on YouTube or script not injected yet
                     }
