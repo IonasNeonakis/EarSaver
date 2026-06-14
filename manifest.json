@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EarSaver",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Equalize and normalize YouTube audio volume automatically.",
   "permissions": [
     "activeTab",
